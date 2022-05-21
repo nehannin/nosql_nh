@@ -1,6 +1,5 @@
 from flask import jsonify, request
-from bson import ObjectId
-from models import User, db
+from models import User
 from flask.views import MethodView
 
 
@@ -37,4 +36,3 @@ class UserRouteHandler(MethodView):
         user = User.get_by_id(_id)
         user.username = request_body.get('username', user.username)
         return jsonify(user=user.to_json())
-

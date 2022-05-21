@@ -1,8 +1,7 @@
-from crypt import methods
 from flask import Flask, jsonify
 from controllers.auth_controller import AccountPasswordRouteHanlder, AccountRouteHandler, LoginRouteHandler, RegisterRouteHandler
 from controllers.home_controller import home_route_handler
-from controllers.publications_controller import PublicationRouteHandler, PublicationsRouteHandler
+from controllers.publications_controller import LikePublicationRouteHandler, PublicationCommentsRouteHandler, PublicationRouteHandler, PublicationsRouteHandler, SharePublicationRouteHandler
 from controllers.users_controller import UsersRouteHandler, UserRouteHandler
 from errors.not_found import NotFound
 from errors.validation_error import ValidationError
@@ -36,14 +35,19 @@ app.add_url_rule('/api/login', view_func= LoginRouteHandler.as_view('login_route
 
 app.add_url_rule('/api/publications', view_func=PublicationsRouteHandler.as_view('publications_route_handler'),
 methods=['GET', 'POST'])
-
 app.add_url_rule('/api/publications/<_id>', view_func=PublicationRouteHandler.as_view('publication_route_handler'),
 methods=['GET', 'DELETE', 'PATCH'])
 
 app.add_url_rule('/api/account', view_func=AccountRouteHandler.as_view('account_route_handler'),
 methods=['GET', 'PATCH'])
-
 app.add_url_rule('/api/account/password', view_func=AccountPasswordRouteHanlder.as_view('account_password_route_handler'),
 methods=['PATCH'])
+
+app.add_url_rule('/api/publications/<_id>/share', view_func=SharePublicationRouteHandler.as_view('share_publication_route_handler'),
+methods=['PATCH'])
+app.add_url_rule('/api/publications/<_id>/like', view_func=LikePublicationRouteHandler.as_view('like_publication_route_handler'),
+methods=['PATCH'])
+app.add_url_rule('/api/publications/<_id>/comments', view_func=PublicationCommentsRouteHandler.as_view('publication_comments_route_handler'),
+methods=['POST'])
 
 app.run(debug=True)

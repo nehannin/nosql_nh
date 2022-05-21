@@ -11,12 +11,32 @@ client = pymongo.MongoClient(
     server_api=ServerApi('1'))
 db = client.nelli_db
 
+class Comment:
+    def __init__(self, body, owner, publication, _id=None):
+        self.body = body
+        self.owner = str(owner)
+        self.publication = str(publication)
+        if _id is not None:
+            _id = str(_id)
+        self._id = _id
+    
+    def to_json(self):
+        return{
+            '_id': str(self._id),
+            'body': self.body,
+            'owner': str(self.owner),
+            'publication': str(self.publication)
+        }
+
+    def create(self):
+        result = db.comments.insert_one({'body': self.body, 'owner': ObjectId(self.owner), 'publication': ObjectId(self.publication)})
+        self._id = str(result.inserted_id)
 
 class User:
     def __init__(self, username, password=None, role='user', _id=None):
         self.username = username
         self.password = password
-        self.role = role
+        self.role = role 
         if _id is not None:
             _id = str(_id)
         self._id = _id
@@ -93,11 +113,14 @@ class Publication:
     def __init__(self, 
                 title, 
                 description, 
-                url, 
+                url,
+                share_link=None,
+                shares=0,
                 owner=None, 
                 visibility=2,
                 likes=[], # Tähän tallennetaan publicationista tykänneiden käyttäjien _id (ObjectId)
                 _id=None):
+
         self.title = title
         self.description = description
         self.url = url
@@ -107,13 +130,28 @@ class Publication:
         if _id is not None:
             _id = str(_id)
         self._id = _id
+        self.share_link = share_link
+        self.shares = shares
 
-    
     
     def update(self):
         _filter = {'_id': ObjectId(self._id)}
         _update = {
             '$set': {'title': self.title, 'description': self.description, 'visibility': self.visibility}
+        }
+        db.publications.update_one(_filter, _update)
+    
+    def like(self):
+        _filter = {'_id': ObjectId(self._id)}
+        _update = {
+            '$set': {'likes': self.likes}
+        }
+        db.publications.update_one(_filter, _update)
+    
+    def share(self):
+        _filter = {'_id': ObjectId(self._id)}
+        _update = {
+            '$set': {'shares': self.shares, 'share_link': self.share_link}
         }
         db.publications.update_one(_filter, _update)
 
@@ -184,13 +222,20 @@ class Publication:
         owner = self.owner
         if owner is not None:
             owner = str(owner)
+
+        likes = []
+        for user_id in self.likes:
+            likes.append(str(user_id))
         return {
             '_id': str(self._id),
             'title': self.title,
             'description': self.description,
             'url': self.url,
             'owner': owner,
-            'visibility': self.visibility
+            'visibility': self.visibility,
+            'likes': likes,
+            'shares': self.shares,
+            'share_link': self.share_link
         }
     
     @staticmethod
@@ -228,7 +273,9 @@ class Publication:
                 publication['url'],
                 _id=publication['_id'],
                 owner=publication.get('owner', None),
-                visibility=publication.get('visibility', 2)
+                visibility=publication.get('visibility', 2),
+                shares=publication.get('shares', 0),
+                share_link=publication.get('share_link', None)
             )
         return publication_object
     

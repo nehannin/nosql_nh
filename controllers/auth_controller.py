@@ -4,11 +4,13 @@ from errors.not_found import NotFound
 from errors.validation_error import ValidationError
 from models import User
 from passlib.hash import pbkdf2_sha256 as sha256
-from flask_jwt_extended import create_access_token
-from flask_jwt_extended import jwt_required, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt, create_access_token
+
+from validators.auth import validate_logged_in_user
 
 class AccountPasswordRouteHanlder(MethodView):
     @jwt_required(optional=False)
+    @validate_logged_in_user
     def patch(self):
         logged_in_user = get_jwt()
         account = User.get_by_id(logged_in_user['sub'])
@@ -21,12 +23,14 @@ class AccountPasswordRouteHanlder(MethodView):
 
 class AccountRouteHandler(MethodView):
     @jwt_required(optional=False)
+    @validate_logged_in_user
     def get(self):
         logged_in_user = get_jwt()
         account = User.get_by_id(logged_in_user['sub'])
         return jsonify(account=account.to_json())
     
     @jwt_required(optional=False)
+    @validate_logged_in_user
     def patch(self):
         logged_in_user = get_jwt()
         account = User.get_by_id(logged_in_user['sub'])

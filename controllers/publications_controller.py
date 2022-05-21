@@ -1,11 +1,14 @@
-from pickle import FALSE
+import random
+import string
 from flask import jsonify, request
 from flask.views import MethodView
 from errors.not_found import NotFound
 from errors.validation_error import ValidationError
-from models import Publication
+from models import Publication, Comment
+from validators.auth import validate_logged_in_user
 from validators.validate_publications import validate_add_publication
 from flask_jwt_extended import jwt_required, get_jwt
+from bson import ObjectId
 
 
 class PublicationsRouteHandler(MethodView):
@@ -63,6 +66,7 @@ class PublicationRouteHandler(MethodView):
         return jsonify(publication=publication.to_json())
     
     @jwt_required(optional=False) # @jwt_required() oletusarvo on False
+    @validate_logged_in_user
     def delete(self, _id):
         logged_in_user = get_jwt()
         if logged_in_user['role'] == 'admin':
@@ -73,6 +77,7 @@ class PublicationRouteHandler(MethodView):
         return ""
     
     @jwt_required(optional=False)
+    @validate_logged_in_user
     def patch(self, _id):
         logged_in_user = get_jwt()
         publication = Publication.get_by_id(_id)
@@ -89,7 +94,51 @@ class PublicationRouteHandler(MethodView):
 
 class LikePublicationRouteHandler(MethodView):
     @jwt_required(optional=False)
+    @validate_logged_in_user
     def patch(self, _id):
+        logged_in_user = get_jwt()
+
         publication = Publication.get_by_id(_id)
         found_index = -1 # Oletusarvo = -1, koska arrayt / listat alkavat 0:sta
         
+        for index, user_object_id in enumerate(publication.likes):
+            if str(user_object_id) == logged_in_user['sub']: # Jos tullaan tänne, sisäänkirjautuneen käyttäjän _id on likes -listassa
+                found_index = index
+                break
+
+        if found_index != -1: # Mennään tänne, jos sisäänkirjautuneen käyttäjän _id on löytynyt likes -listasta
+            del publication.likes[found_index]
+        else: # Tänne mennään, jos käyttäjää ei löydy listasta
+            publication.likes.append(ObjectId(logged_in_user['sub']))
+        
+        publication.like()
+        return jsonify(publication=publication.to_json())
+
+class SharePublicationRouteHandler(MethodView):
+    @jwt_required(optional=False)
+    @validate_logged_in_user
+    def patch(self, _id):
+
+        publication = Publication.get_by_id(_id)
+        letters = string.ascii_lowercase
+
+        if publication.share_link is None:
+            publication.share_link = ''.join(random.choice(letters) for _ in range(8))
+        
+        publication.shares += 1 # publication.shares = publication.shares + 1
+        publication.share()
+
+        return jsonify(publication=publication.to_json())
+
+class PublicationCommentsRouteHandler(MethodView):
+    @jwt_required(optional=False)
+    @validate_logged_in_user
+    def post(self, _id):
+        # 1. Ota request_body vastaan
+        request_body = request.get_json()
+        if request_body and 'body' in request_body:
+            logged_in_user = get_jwt()
+            comment = Comment(request_body['body'], logged_in_user['sub'], _id)
+            comment.create()
+            return jsonify(comment=comment.to_json())
+        raise ValidationError(message='body is required')
